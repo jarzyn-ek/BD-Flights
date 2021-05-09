@@ -1,4 +1,5 @@
-import com.sun.scenario.effect.impl.sw.sse.SSEBlend_SRC_OUTPeer;
+package ETL;
+
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
@@ -14,55 +15,50 @@ import java.text.ParseException;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 public class FlightsDataTransformer {
 
     private Map<String, Airport> allAirports;
     //pierwszy klucz - data, drugi klucz - stan
     private Map<String,Map<String, ReportInfo>> reportInfos;
+    public static int PERIOD_IN_MILLIS = 10000;
 
     public void start() throws SQLException, FileNotFoundException {
 
         this.reportInfos = new HashMap<>();
-        this.readAirports();
+//        this.readAirports();
 
         Timer t = new Timer();
         UpdateTask updateTask = new UpdateTask(this);
         // This task is scheduled to run every 10 seconds
 
-        t.scheduleAtFixedRate(updateTask, 0, 10000);
-
-        Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-pipe");
-        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-
-
-
-        final StreamsBuilder builder = new StreamsBuilder();
-        KStream<String, String> source = builder.stream("quickstart-events");
-         source.foreach((k,v) -> {
-             try {
-                 apply(k,v);
-             } catch (ParseException e) {
-                 e.printStackTrace();
-             }
-         });
-
-        Topology topology = builder.build();
-
-        KafkaStreams streams = new KafkaStreams(topology,props);
-        streams.start();
+        t.scheduleAtFixedRate(updateTask, 0, PERIOD_IN_MILLIS);
+//
+//        Properties props = new Properties();
+//        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-pipe");
+//        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+//        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+//        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+//
+//
+//
+//        final StreamsBuilder builder = new StreamsBuilder();
+//        KStream<String, String> source = builder.stream("quickstart-events");
+//         source.foreach((k,v) -> {
+//             try {
+//                 apply(k,v);
+//             } catch (ParseException e) {
+//                 e.printStackTrace();
+//             }
+//         });
+//
+//        Topology topology = builder.build();
+//
+//        KafkaStreams streams = new KafkaStreams(topology,props);
+//        streams.start();
     }
 
-    public static long getDateDiff(java.util.Date date1, java.util.Date date2, TimeUnit timeUnit) {
-        long diffInMillies = date2.getTime() - date1.getTime();
-        return timeUnit.convert(diffInMillies,TimeUnit.MILLISECONDS);
-    }
-
-    private void apply(String k, String v) throws ParseException {
+    public void apply(String k, String v) throws ParseException {
 
         System.out.println(v);
 
@@ -88,7 +84,7 @@ public class FlightsDataTransformer {
         }
 
         if (infoType.equals("D")) {
-            String stateDeparture = this.allAirports.get(startAirport).getState();
+            String stateDeparture = this.getAllAirports().get(startAirport).getState();
             int latencyInMinutes = calculateLatencyDeparture(realDeparture, scheduledDeparture);
 
             if (this.getReportInfos().get(startDate).get(stateDeparture) != null) {
@@ -106,7 +102,7 @@ public class FlightsDataTransformer {
                 latencyInMinutes = calculateLatencyArrival(realArrival, scheduledArrival);
             }
 
-            String stateArrival = this.allAirports.get(destAirport).getState();
+            String stateArrival = this.getAllAirports().get(destAirport).getState();
 
             if (this.getReportInfos().get(endDate).get(stateArrival) != null) {
                 this.getReportInfos().get(endDate).get(stateArrival).addArrival();
@@ -132,7 +128,7 @@ public class FlightsDataTransformer {
         }
         myReader.close();
 
-        this.allAirports = allAirports;
+        this.setAllAirports(allAirports);
     }
 
     public static int calculateLatencyDeparture(String real, String scheduled) {
@@ -167,5 +163,14 @@ public class FlightsDataTransformer {
 
     public void setReportInfos(Map<String,Map<String, ReportInfo>> reportInfos) {
         this.reportInfos = reportInfos;
+    }
+
+
+    public Map<String, Airport> getAllAirports() {
+        return allAirports;
+    }
+
+    public void setAllAirports(Map<String, Airport> allAirports) {
+        this.allAirports = allAirports;
     }
 }

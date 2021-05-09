@@ -1,3 +1,5 @@
+package ETL;
+
 public class ReportInfo {
 
     private String state;

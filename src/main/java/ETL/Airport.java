@@ -1,3 +1,5 @@
+package ETL;
+
 public class Airport {
 
     private int id;
